@@ -1,0 +1,27 @@
+{
+	"name": "godotreleaser",
+	"image": "mcr.microsoft.com/devcontainers/go:1.22-bullseye",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"eamodio.gitlens",
+				"timonwong.shellcheck"
+			],
+			"settings": {
+				"go.toolsManagement.checkForUpdates": "local",
+				"go.useLanguageServer": true,
+				"go.gopath": "/go"
+			}
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/guiyomh/features/golangci-lint:0": {
+			"version": "1.58.1"
+		},
+		"ghcr.io/guiyomh/features/goreleaser:0": {
+			"version": "1.25.1"
+		},
+		"ghcr.io/guiyomh/features/gotestsum:0": {}
+	}
+}
