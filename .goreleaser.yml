@@ -16,7 +16,8 @@ builds:
 dockers:
   - id: linux_build
     image_templates:
-      - ruffel/godotreleaser
+      - ruffel/godotreleaser:v{{ .Version }}
+      - ghcr.io/ruffel/godotreleaser:v{{ .Version }}
     dockerfile: Dockerfile
     use: buildx
     build_flag_templates:
