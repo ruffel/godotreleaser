@@ -1,0 +1,60 @@
+#===============================================================================
+# Build pipeline for pull requests
+#===============================================================================
+name: build
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 📚 Checkout (GitHub)
+      uses: actions/checkout@v4
+  
+    - name: 🛠️ Install build dependencies (Go 1.22)
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.22"
+        cache: false
+
+    - name: 🛠️ Install build dependencies (Go packages)
+      run: |
+        go install gotest.tools/gotestsum@latest
+
+    - name: 👷 Check formatting
+      run: |
+        STATUS=0
+        assert-nothing-changed() {
+          local diff
+          "$@" >/dev/null || return 1
+          if ! diff="$(git diff -U1 --color --exit-code)"; then
+            printf '\e[31mError: running `\e[1m%s\e[22m` results in modifications that you must check into version control:\e[0m\n%s\n\n' "$*" "$diff" >&2
+            git checkout -- .
+            STATUS=1
+          fi
+        }
+
+        assert-nothing-changed go fmt ./...
+        assert-nothing-changed go mod tidy
+
+        exit $STATUS
+
+    - name: 👷 Run linter to verify codebase (ci-lint 1.58.1)
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.58.1
+        skip-cache: true
+        skip-pkg-cache: true
+        skip-build-cache: true
+
+    - name: 👷 Build
+      run: make build
+
+    - name: 📚 Run tests
+      run: make test
