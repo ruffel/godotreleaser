@@ -1,24 +1,16 @@
 package build
 
 import (
-	"fmt"
+	"os"
+	"os/exec"
 
-	validator "github.com/go-playground/validator/v10"
-	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/file"
-	"github.com/knadh/koanf/v2"
-	"github.com/ruffel/godotreleaser/internal/config"
 	"github.com/spf13/cobra"
 )
 
-type buildOpts struct {
-	config string
-}
+type buildOpts struct{}
 
 func NewBuildCmd() *cobra.Command {
-	opts := &buildOpts{
-		config: "",
-	}
+	opts := &buildOpts{}
 
 	cmd := &cobra.Command{
 		Use:   "build",
@@ -28,39 +20,17 @@ func NewBuildCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.config, "config", "c", "", "Load configuration from file")
-
 	return cmd
 }
 
-func runBuild(opts *buildOpts) error {
-	cfg, err := loadConfiguration(opts.config)
-	if err != nil {
-		return err
+func runBuild(_ *buildOpts) error {
+	if err := os.MkdirAll("/app/bin", 0o0755); err != nil { //nolint:mnd
+		return err //nolint:wrapcheck
 	}
 
-	fmt.Println("Building project", cfg.ProjectName)
+	cmd := exec.Command("godot", "--verbose", "--headless", "--quit", "--export-release", "Windows", "/app/project.godot") //nolint:lll
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-	return nil
-}
-
-func loadConfiguration(filepath string) (*config.Config, error) {
-	k := koanf.New(".")
-
-	if filepath != "" {
-		if err := k.Load(file.Provider(filepath), yaml.Parser()); err != nil {
-			return nil, err //nolint:wrapcheck
-		}
-	}
-
-	var cfg config.Config
-	if err := k.Unmarshal("", &cfg); err != nil {
-		return nil, err //nolint:wrapcheck
-	}
-
-	if err := validator.New().Struct(cfg); err != nil {
-		return nil, err //nolint:wrapcheck
-	}
-
-	return &cfg, nil
+	return cmd.Run() //nolint:wrapcheck
 }

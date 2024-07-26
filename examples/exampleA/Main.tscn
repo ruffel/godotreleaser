@@ -1,0 +1,16 @@
+[gd_scene format=3 uid="uid://cj2drlwup1vl7"]
+
+[node name="Main" type="Node2D"]
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+offset_right = 1150.0
+offset_bottom = 648.0
+
+[node name="CenterContainer" type="CenterContainer" parent="MarginContainer"]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/CenterContainer"]
+layout_mode = 2
+text = "Example A"
+horizontal_alignment = 1
+vertical_alignment = 1

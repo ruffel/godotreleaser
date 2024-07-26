@@ -1,0 +1,32 @@
+version: 2
+
+builds:
+  - id: linux_build
+    binary: godotreleaser
+    main: ./cmd/godotreleaser
+    ldflags:
+      - -X github.com/ruffel/godotreleaser/internal/cmd/version.version={{ .Summary }}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+
+dockers:
+  - id: linux_build
+    image_templates:
+      - ruffel/godotreleaser:v{{ .Version }}
+      - ghcr.io/ruffel/godotreleaser:v{{ .Version }}
+    dockerfile: Dockerfile
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--platform=linux/amd64"
+    extra_files:
+      - scripts/entrypoint.sh
