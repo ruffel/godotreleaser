@@ -88,7 +88,7 @@ def main(version_input):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=DESCRIPTION, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('version_input', type=str, help="Version input or type (major, minor, patch)")
 
     args = parser.parse_args()
