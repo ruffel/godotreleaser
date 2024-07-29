@@ -23,21 +23,21 @@ RUN true \
     # Install Godot
     #---------------------------------------------------------------------------
     printf "Installing Godot v%s\n" $GODOT_VERSION \
-    && wget -q https://downloads.tuxfamily.org/godotengine/$GODOT_VERSION/Godot_v$GODOT_VERSION-stable_linux.x86_64.zip \
-    && unzip Godot_v$GODOT_VERSION-stable_linux.x86_64.zip \
-    && mv Godot_v$GODOT_VERSION-stable_linux.x86_64 /usr/local/bin/godot \
+    && wget -q https://downloads.tuxfamily.org/godotengine/$GODOT_VERSION/mono/Godot_v$GODOT_VERSION-stable_mono_linux_x86_64.zip  \
+    && unzip Godot_v$GODOT_VERSION-stable_mono_linux_x86_64.zip \
+    && mv Godot_v$GODOT_VERSION-stable_mono_linux_x86_64 /usr/local/bin/godot \
     && chmod +x /usr/local/bin/godot \
-    && rm Godot_v$GODOT_VERSION-stable_linux.x86_64.zip \
+    && rm Godot_v$GODOT_VERSION-stable_mono_linux_x86_64.zip \
     #---------------------------------------------------------------------------
     # Install Godot export templates
     #---------------------------------------------------------------------------
     && printf "Installing Godot export templates v%s\n" $GODOT_VERSION \
-    && wget -q https://downloads.tuxfamily.org/godotengine/$GODOT_VERSION/Godot_v$GODOT_VERSION-stable_export_templates.tpz \
+    && wget -q https://downloads.tuxfamily.org/godotengine/$GODOT_VERSION/mono/Godot_v$GODOT_VERSION-stable_mono_export_templates.tpz \
     && mkdir -p ~/.local/share/godot/export_templates/$GODOT_VERSION.stable \
-    && unzip -o Godot_v$GODOT_VERSION-stable_export_templates.tpz -d ~/.local/share/godot/export_templates/$GODOT_VERSION.stable \
+    && unzip -o Godot_v$GODOT_VERSION-stable_mono_export_templates.tpz -d ~/.local/share/godot/export_templates/$GODOT_VERSION.stable \
     && mv ~/.local/share/godot/export_templates/$GODOT_VERSION.stable/templates/* ~/.local/share/godot/export_templates/$GODOT_VERSION.stable/ \
     && rm -r ~/.local/share/godot/export_templates/$GODOT_VERSION.stable/templates \
-    && rm Godot_v$GODOT_VERSION-stable_export_templates.tpz
+    && rm Godot_v$GODOT_VERSION-stable_mono_export_templates.tpz
 
 #-------------------------------------------------------------------------------
 # Configure the startup environment.
