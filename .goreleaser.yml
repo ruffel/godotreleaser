@@ -1,7 +1,27 @@
 version: 2
 
 builds:
-  - id: linux_build
+  - id: matrix
+    binary: godotreleaser
+    main: ./cmd/godotreleaser
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+    ignore:
+      - goos: windows
+        goarch: arm64
+      - goos: darwin
+        goarch: amd64
+      - goos: linux
+        goarch: arm64
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -X github.com/ruffel/godotreleaser/internal/cmd/version.version={{ .Summary }}
+
+  - id: docker
     binary: godotreleaser
     main: ./cmd/godotreleaser
     ldflags:
@@ -13,8 +33,11 @@ builds:
     goarch:
       - amd64
 
+archives:
+  - format: binary
+
 dockers:
-  - id: linux_build
+  - id: docker
     image_templates:
       - ghcr.io/ruffel/godotreleaser:{{ .Tag }}
       - ghcr.io/ruffel/godotreleaser:v{{ .Major }}

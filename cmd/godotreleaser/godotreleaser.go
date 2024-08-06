@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ruffel/godotreleaser/internal/cmd/root"
+	"github.com/ruffel/godotreleaser/internal/godot/fetch"
 )
 
 type exitCode int
@@ -17,6 +19,8 @@ const (
 )
 
 func main() {
+	spew.Dump(fetch.BuildBinaryURL("3.2.3", false))
+
 	os.Exit(int(mainRun()))
 }
 
