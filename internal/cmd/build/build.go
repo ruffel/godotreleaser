@@ -60,7 +60,7 @@ func runBuild(opts *buildOpts) error {
 	//--------------------------------------------------------------------------
 	// TODO: Can we derive this from the project file?
 	version := lo.Ternary(opts.Version == "", "4.2.2", opts.Version)
-	useMono := true
+	useMono := false
 
 	if err := downloadGodot(opts.fs, version, useMono); err != nil {
 		return fmt.Errorf("failed to configure godot: %w", err)
@@ -81,6 +81,8 @@ func runBuild(opts *buildOpts) error {
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
+
+	// e, err := exports.New(filepath.Join(filepath.Dir(path), "export_presets.cfg"))
 
 	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", path)
 	cmd.Stdout = os.Stdout

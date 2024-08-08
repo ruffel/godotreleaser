@@ -1,4 +1,4 @@
-package config
+package parser
 
 import (
 	"bufio"
@@ -46,7 +46,7 @@ func (p ProjectParser) Unmarshal(data []byte) (map[string]interface{}, error) {
 			}
 
 			// Handle PackedStringArray
-			if matches := packedStringArrayPattern.FindStringSubmatch(value); len(matches) == 2 {
+			if matches := packedStringArrayPattern.FindStringSubmatch(value); len(matches) == 2 { //nolint:mnd
 				elements := strings.Split(matches[1], ",")
 				for i := range elements {
 					elements[i] = strings.TrimSpace(strings.Trim(elements[i], `"`))
