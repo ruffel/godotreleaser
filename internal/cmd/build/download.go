@@ -17,10 +17,23 @@ import (
 	"github.com/ruffel/godotreleaser/internal/utils/downloader"
 	"github.com/ruffel/godotreleaser/internal/utils/unzip"
 	"github.com/samber/lo"
+	"github.com/spf13/afero"
 )
 
 //nolint:cyclop,funlen
-func downloadGodot(version string, mono bool) error {
+func downloadGodot(fs afero.Fs, version string, mono bool) error {
+	_ = fs
+	//--------------------------------------------------------------------------
+	// Check if this configuration already exists...
+	//--------------------------------------------------------------------------
+	// binaryPath :=
+
+	// found, err := afero.Exists(fs, )
+
+	//--------------------------------------------------------------------------
+	// Check if this configuration already exists...
+	//--------------------------------------------------------------------------
+
 	multi := pterm.DefaultMultiPrinter
 
 	binaryTracker := NewDownloadTracker(lo.Must(pterm.DefaultProgressbar.WithWriter(multi.NewWriter()).
