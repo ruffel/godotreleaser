@@ -2,12 +2,10 @@ package build
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,13 +24,23 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	//--------------------------------------------------------------------------
 	// Check if this configuration already exists...
 	//--------------------------------------------------------------------------
-	// binaryPath :=
+	cacheDir := paths.Version(version, mono)
+	exportPath := paths.TemplatePath(version, mono)
+	symlinkPath := filepath.Join(cacheDir, "godot")
 
-	// found, err := afero.Exists(fs, )
+	binaryExists, err := afero.Exists(fs, symlinkPath)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
 
-	//--------------------------------------------------------------------------
-	// Check if this configuration already exists...
-	//--------------------------------------------------------------------------
+	exportExists, err := afero.Exists(fs, exportPath)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if binaryExists && exportExists {
+		return nil
+	}
 
 	multi := pterm.DefaultMultiPrinter
 
@@ -70,6 +78,16 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	go func() {
 		defer wg.Done()
 
+		if err := fs.MkdirAll(filepath.Dir(binaryPath), 0o0755); err != nil { //nolint:mnd
+			return
+		}
+
+		if binaryExists {
+			_, _ = binaryTracker.Tracker.Stop()
+
+			return
+		}
+
 		binaryAddress, err := url.BuildBinaryURL(version, mono)
 		if err != nil {
 			pterm.Error.Println("Failed to build Godot binary URL:", err)
@@ -87,6 +105,16 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 
 	go func() {
 		defer wg.Done()
+
+		if exportExists {
+			_, _ = templateTracker.Tracker.Stop()
+
+			return
+		}
+
+		if err := fs.MkdirAll(filepath.Dir(templatePath), 0o0755); err != nil { //nolint:mnd
+			return
+		}
 
 		templateAddress, _ := url.BuildTemplateURL(version, mono)
 
@@ -117,55 +145,16 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		return err //nolint:wrapcheck
 	}
 
-	// // Clean up zip files
-	// if err := os.Remove(binaryPath); err != nil {
-	// 	pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
-	// }
+	// Clean up zip files
+	if err := os.Remove(binaryPath); err != nil {
+		pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
+	}
 
-	// if err := os.Remove(templatePath); err != nil {
-	// 	pterm.Warning.Printf("Failed to remove template zip file: %v\n", err)
-	// }
+	if err := os.Remove(templatePath); err != nil {
+		pterm.Warning.Printf("Failed to remove template zip file: %v\n", err)
+	}
 
 	pterm.Success.Println("Godot and templates extracted successfully")
-
-	var godotBinary string
-
-	err := filepath.Walk(versionDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() && strings.HasPrefix(info.Name(), "Godot") {
-			godotBinary = path
-
-			return filepath.SkipDir
-		}
-
-		return nil
-	})
-	if err != nil {
-		pterm.Error.Printf("Failed to find Godot binary: %v\n", err)
-
-		return err //nolint:wrapcheck
-	}
-
-	if godotBinary == "" {
-		pterm.Error.Println("Godot binary not found")
-
-		return errors.New("godot binary not found")
-	}
-
-	// Create a symlink to the Godot binary
-	symlinkPath := filepath.Join(versionDir, "godot")
-
-	os.Remove(symlinkPath)
-
-	err = os.Symlink(godotBinary, symlinkPath)
-	if err != nil {
-		pterm.Error.Printf("Failed to create symlink: %v\n", err)
-
-		return err //nolint:wrapcheck
-	}
 
 	return nil
 }

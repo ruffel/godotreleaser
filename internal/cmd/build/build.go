@@ -72,7 +72,11 @@ func runBuild(opts *buildOpts) error {
 	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755) //nolint:mnd
 
 	project := filepath.Join(opts.ProjectDir, "project.godot")
-	binary := filepath.Join(paths.Version(version, useMono), "godot")
+
+	binary, err := paths.Binary(version, useMono)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
 
 	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", project) //nolint:lll
 	cmd.Stdout = os.Stdout
