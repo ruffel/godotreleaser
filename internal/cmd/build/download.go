@@ -1,7 +1,6 @@
 package build
 
 import (
-	"archive/zip"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"github.com/ruffel/godotreleaser/internal/godot/url"
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/ruffel/godotreleaser/internal/utils/downloader"
+	"github.com/ruffel/godotreleaser/internal/utils/unzip"
 	"github.com/samber/lo"
 )
 
@@ -30,12 +30,16 @@ func downloadGodot(version string, mono bool) error {
 		WithShowElapsedTime(false).
 		Start()))
 
+	_ = binaryTracker
+
 	templateTracker := NewDownloadTracker(lo.Must(pterm.DefaultProgressbar.WithWriter(multi.NewWriter()).
 		WithTitle("Downloading Godot Templates").
 		WithShowCount(false).
 		WithShowPercentage(true).
 		WithShowElapsedTime(false).
 		Start()))
+
+	_ = templateTracker
 
 	if _, err := multi.Start(); err != nil {
 		pterm.Error.Println("Failed to start multi printer:", err)
@@ -66,8 +70,6 @@ func downloadGodot(version string, mono bool) error {
 		}
 	}()
 
-	os.UserHomeDir()
-
 	templatePath := filepath.Join(paths.Version(version, mono), "templates.tpz")
 
 	go func() {
@@ -88,28 +90,28 @@ func downloadGodot(version string, mono bool) error {
 	// Now that we have the files, we can extract them.
 	pterm.Info.Println("Extracting Godot binary...")
 
-	if err := extractZip(binaryPath, versionDir, "godot"); err != nil {
+	if err := unzip.Extract(binaryPath, filepath.Join(versionDir, "editor")); err != nil {
 		pterm.Error.Println("Failed to extract Godot binary:", err)
 
-		return err
+		return err //nolint:wrapcheck
 	}
 
 	pterm.Info.Println("Extracting Godot templates...")
 
-	if err := extractZip(templatePath, versionDir, "templates"); err != nil {
+	if err := unzip.Extract(templatePath, paths.TemplatePath(version, mono)); err != nil {
 		pterm.Error.Println("Failed to extract Godot templates:", err)
 
-		return err
+		return err //nolint:wrapcheck
 	}
 
-	// Clean up zip files
-	if err := os.Remove(binaryPath); err != nil {
-		pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
-	}
+	// // Clean up zip files
+	// if err := os.Remove(binaryPath); err != nil {
+	// 	pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
+	// }
 
-	if err := os.Remove(templatePath); err != nil {
-		pterm.Warning.Printf("Failed to remove template zip file: %v\n", err)
-	}
+	// if err := os.Remove(templatePath); err != nil {
+	// 	pterm.Warning.Printf("Failed to remove template zip file: %v\n", err)
+	// }
 
 	pterm.Success.Println("Godot and templates extracted successfully")
 
@@ -142,6 +144,8 @@ func downloadGodot(version string, mono bool) error {
 
 	// Create a symlink to the Godot binary
 	symlinkPath := filepath.Join(versionDir, "godot")
+
+	os.Remove(symlinkPath)
 
 	err = os.Symlink(godotBinary, symlinkPath)
 	if err != nil {
@@ -217,60 +221,4 @@ func formatSize(bytes int64) string { // nolint:unused
 	}
 
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-//nolint:cyclop
-func extractZip(zipPath, destPath, renameTarget string) error {
-	reader, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err //nolint:wrapcheck
-	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-		filePath := filepath.Join(destPath, filepath.Clean(file.Name))
-
-		// Rename the directory based on the renameTarget
-		if renameTarget != "" {
-			if strings.HasPrefix(file.Name, renameTarget+"/") {
-				filePath = filepath.Join(destPath, filepath.Base(renameTarget), file.Name[len(renameTarget)+1:])
-			}
-		}
-
-		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
-				return err //nolint:wrapcheck
-			}
-
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
-			return err //nolint:wrapcheck
-		}
-
-		outFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			return err //nolint:wrapcheck
-		}
-
-		rc, err := file.Open()
-		if err != nil {
-			outFile.Close()
-
-			return err //nolint:wrapcheck
-		}
-
-		// TODO: Check bounds.
-		_, err = io.Copy(outFile, rc) //nolint:gosec
-
-		outFile.Close()
-		rc.Close()
-
-		if err != nil {
-			return err //nolint:wrapcheck
-		}
-	}
-
-	return nil
 }

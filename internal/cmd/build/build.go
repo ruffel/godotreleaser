@@ -7,6 +7,7 @@ import (
 
 	project "github.com/ruffel/godotreleaser/internal/godot/project"
 	"github.com/ruffel/godotreleaser/internal/paths"
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 )
 
@@ -61,9 +62,11 @@ func runBuild(opts *buildOpts) error {
 		return err //nolint:wrapcheck
 	}
 
-	if err := downloadGodot(version, useMono); err != nil {
-		return err //nolint:wrapcheck
-	}
+	os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755)
+
+	// if err := downloadGodot(version, useMono); err != nil {
+	// 	return err //nolint:wrapcheck
+	// }
 
 	project := filepath.Join(opts.ProjectDir, "project.godot")
 	binary := filepath.Join(paths.Version(version, useMono), "godot")
@@ -73,5 +76,4 @@ func runBuild(opts *buildOpts) error {
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run() //nolint:wrapcheck
-
 }
