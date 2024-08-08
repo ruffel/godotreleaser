@@ -59,7 +59,7 @@ func runBuild(opts *buildOpts) error {
 	// Download the Godot binary and export templates if they don't exist.
 	//--------------------------------------------------------------------------
 	// TODO: Can we derive this from the project file?
-	version := lo.Ternary(opts.Version == "", "4.3", opts.Version)
+	version := lo.Ternary(opts.Version == "", "4.2.2", opts.Version)
 	useMono := true
 
 	if err := downloadGodot(opts.fs, version, useMono); err != nil {

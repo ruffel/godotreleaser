@@ -51,7 +51,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		WithTitle("Downloading Godot Binaries").
 		WithShowCount(false).
 		WithShowPercentage(true).
-		WithShowElapsedTime(false).
+		WithShowElapsedTime(true).
 		Start()))
 
 	_ = binaryTracker
@@ -60,7 +60,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		WithTitle("Downloading Godot Templates").
 		WithShowCount(false).
 		WithShowPercentage(true).
-		WithShowElapsedTime(false).
+		WithShowElapsedTime(true).
 		Start()))
 
 	_ = templateTracker
@@ -128,6 +128,8 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	}()
 
 	wg.Wait()
+
+	_, _ = multi.Stop()
 
 	versionDir := paths.Version(version, mono)
 
