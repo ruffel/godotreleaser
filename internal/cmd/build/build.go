@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/davecgh/go-spew/spew"
 	project "github.com/ruffel/godotreleaser/internal/godot/project"
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/samber/lo"
@@ -84,8 +83,6 @@ func runBuild(opts *buildOpts) error {
 	}
 
 	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", path)
-
-	spew.Dump(binary, cmd.Args)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

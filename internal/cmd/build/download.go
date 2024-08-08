@@ -73,7 +73,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 
 	var wg sync.WaitGroup
 
-	wg.Add(2) //nolint:mnd
+	wg.Add(2)
 
 	binaryPath := filepath.Join(paths.Version(version, mono), "godot.zip")
 
@@ -81,7 +81,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	go func() {
 		defer wg.Done()
 
-		if err := fs.MkdirAll(filepath.Dir(binaryPath), 0o0755); err != nil { //nolint:mnd
+		if err := fs.MkdirAll(filepath.Dir(binaryPath), 0o0755); err != nil {
 			return
 		}
 
@@ -98,7 +98,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 			return
 		}
 
-		err = downloader.DownloadFile(context.Background(), binaryAddress, binaryPath, downloader.WithProgress(binaryTracker)) //nolint:lll
+		err = downloader.DownloadFile(context.Background(), binaryAddress, binaryPath, downloader.WithProgress(binaryTracker))
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot binary:", err)
 		}
@@ -115,13 +115,13 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 			return
 		}
 
-		if err := fs.MkdirAll(filepath.Dir(templatePath), 0o0755); err != nil { //nolint:mnd
+		if err := fs.MkdirAll(filepath.Dir(templatePath), 0o0755); err != nil {
 			return
 		}
 
 		templateAddress, _ := url.BuildTemplateURL(version, mono)
 
-		err := downloader.DownloadFile(context.Background(), templateAddress, templatePath, downloader.WithProgress(templateTracker)) //nolint:lll
+		err := downloader.DownloadFile(context.Background(), templateAddress, templatePath, downloader.WithProgress(templateTracker))
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot templates:", err)
 		}
