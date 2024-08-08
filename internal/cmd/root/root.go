@@ -13,7 +13,7 @@ import (
 
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 			slog.SetDefault(slog.New(charmlog.NewWithOptions(os.Stderr, charmlog.Options{
 				ReportCaller:    true,
 				ReportTimestamp: true,

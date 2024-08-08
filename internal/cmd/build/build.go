@@ -3,10 +3,12 @@ package build
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 
+	"github.com/davecgh/go-spew/spew"
 	project "github.com/ruffel/godotreleaser/internal/godot/project"
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/samber/lo"
@@ -16,6 +18,7 @@ import (
 
 type buildOpts struct {
 	ProjectDir string
+	Version    string
 	// Dependencies
 	fs afero.Fs
 }
@@ -33,7 +36,8 @@ func NewBuildCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&opts.ProjectDir, "project", "p", "", "Path to the Godot project directory (defaults to the current directory)") //nolint:lll
+	cmd.Flags().StringVarP(&opts.ProjectDir, "project", "p", "", "Path to the Godot project directory (defaults to the current directory)")
+	cmd.Flags().StringVarP(&opts.Version, "version", "v", "", "Godot version to use")
 
 	return cmd
 }
@@ -44,6 +48,8 @@ func runBuild(opts *buildOpts) error {
 		return fmt.Errorf("failed to find project file: %w", err)
 	}
 
+	slog.Debug("Found Godot project file", "path", path)
+
 	if _, err := project.New(path); err != nil {
 		return fmt.Errorf("project file is not valid: %w", err)
 	}
@@ -53,8 +59,9 @@ func runBuild(opts *buildOpts) error {
 	//
 	// Download the Godot binary and export templates if they don't exist.
 	//--------------------------------------------------------------------------
-	version := "4.2.2" // TODO: Can we derive this from the project file?
-	useMono := false   // TODO: We can probably derive this requirement from the project file.
+	// TODO: Can we derive this from the project file?
+	version := lo.Ternary(opts.Version == "", "4.3", opts.Version)
+	useMono := true
 
 	if err := downloadGodot(opts.fs, version, useMono); err != nil {
 		return fmt.Errorf("failed to configure godot: %w", err)
@@ -65,20 +72,20 @@ func runBuild(opts *buildOpts) error {
 	//
 	// Build the project.
 	//--------------------------------------------------------------------------
-	if err := os.MkdirAll(paths.Version(version, useMono), 0o0755); err != nil { //nolint:mnd
+	if err := os.MkdirAll(paths.Version(version, useMono), 0o0755); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755) //nolint:mnd
-
-	project := filepath.Join(opts.ProjectDir, "project.godot")
+	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755)
 
 	binary, err := paths.Binary(version, useMono)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", project) //nolint:lll
+	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", path)
+
+	spew.Dump(binary, cmd.Args)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

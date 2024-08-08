@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -20,6 +21,8 @@ import (
 
 //nolint:cyclop,funlen
 func downloadGodot(fs afero.Fs, version string, mono bool) error {
+	slog.Info("Fetching Godot binaries and export templates", "version", version, "mono", mono)
+
 	_ = fs
 	//--------------------------------------------------------------------------
 	// Check if this configuration already exists...
@@ -128,21 +131,25 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 
 	versionDir := paths.Version(version, mono)
 
-	// Now that we have the files, we can extract them.
-	pterm.Info.Println("Extracting Godot binary...")
+	if !binaryExists {
+		// Now that we have the files, we can extract them.
+		pterm.Info.Println("Extracting Godot binary...")
 
-	if err := unzip.Extract(binaryPath, filepath.Join(versionDir, "editor")); err != nil {
-		pterm.Error.Println("Failed to extract Godot binary:", err)
+		if err := unzip.Extract(binaryPath, filepath.Join(versionDir, "editor")); err != nil {
+			pterm.Error.Println("Failed to extract Godot binary:", err)
 
-		return err //nolint:wrapcheck
+			return err //nolint:wrapcheck
+		}
 	}
 
-	pterm.Info.Println("Extracting Godot templates...")
+	if !exportExists {
+		pterm.Info.Println("Extracting Godot templates...")
 
-	if err := unzip.Extract(templatePath, paths.TemplatePath(version, mono)); err != nil {
-		pterm.Error.Println("Failed to extract Godot templates:", err)
+		if err := unzip.Extract(templatePath, paths.TemplatePath(version, mono)); err != nil {
+			pterm.Error.Println("Failed to extract Godot templates:", err)
 
-		return err //nolint:wrapcheck
+			return err //nolint:wrapcheck
+		}
 	}
 
 	// Clean up zip files
