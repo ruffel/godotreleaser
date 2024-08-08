@@ -73,7 +73,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 
 	var wg sync.WaitGroup
 
-	wg.Add(2)
+	wg.Add(2) //nolint:mnd
 
 	binaryPath := filepath.Join(paths.Version(version, mono), "godot.zip")
 
