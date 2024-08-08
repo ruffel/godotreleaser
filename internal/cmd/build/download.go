@@ -3,6 +3,7 @@ package build
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/samber/lo"
 )
 
+//nolint:cyclop,funlen
 func downloadGodot(version string, mono bool) error {
 	multi := pterm.DefaultMultiPrinter
 
@@ -35,10 +37,15 @@ func downloadGodot(version string, mono bool) error {
 		WithShowElapsedTime(false).
 		Start()))
 
-	multi.Start()
+	if _, err := multi.Start(); err != nil {
+		pterm.Error.Println("Failed to start multi printer:", err)
+
+		return err //nolint:wrapcheck
+	}
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+
+	wg.Add(2) //nolint:mnd
 
 	binaryPath := filepath.Join(paths.Version(version, mono), "godot.zip")
 
@@ -54,11 +61,12 @@ func downloadGodot(version string, mono bool) error {
 		}
 
 		err = downloader.DownloadFile(context.Background(), binaryAddress, binaryPath, downloader.WithProgress(binaryTracker)) //nolint:lll
-
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot binary:", err)
 		}
 	}()
+
+	os.UserHomeDir()
 
 	templatePath := filepath.Join(paths.Version(version, mono), "templates.tpz")
 
@@ -79,14 +87,18 @@ func downloadGodot(version string, mono bool) error {
 
 	// Now that we have the files, we can extract them.
 	pterm.Info.Println("Extracting Godot binary...")
+
 	if err := extractZip(binaryPath, versionDir, "godot"); err != nil {
 		pterm.Error.Println("Failed to extract Godot binary:", err)
+
 		return err
 	}
 
 	pterm.Info.Println("Extracting Godot templates...")
+
 	if err := extractZip(templatePath, versionDir, "templates"); err != nil {
 		pterm.Error.Println("Failed to extract Godot templates:", err)
+
 		return err
 	}
 
@@ -94,14 +106,51 @@ func downloadGodot(version string, mono bool) error {
 	if err := os.Remove(binaryPath); err != nil {
 		pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
 	}
+
 	if err := os.Remove(templatePath); err != nil {
 		pterm.Warning.Printf("Failed to remove template zip file: %v\n", err)
 	}
 
 	pterm.Success.Println("Godot and templates extracted successfully")
 
-	return nil
+	var godotBinary string
 
+	err := filepath.Walk(versionDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && strings.HasPrefix(info.Name(), "Godot") {
+			godotBinary = path
+
+			return filepath.SkipDir
+		}
+
+		return nil
+	})
+	if err != nil {
+		pterm.Error.Printf("Failed to find Godot binary: %v\n", err)
+
+		return err //nolint:wrapcheck
+	}
+
+	if godotBinary == "" {
+		pterm.Error.Println("Godot binary not found")
+
+		return errors.New("godot binary not found")
+	}
+
+	// Create a symlink to the Godot binary
+	symlinkPath := filepath.Join(versionDir, "godot")
+
+	err = os.Symlink(godotBinary, symlinkPath)
+	if err != nil {
+		pterm.Error.Printf("Failed to create symlink: %v\n", err)
+
+		return err //nolint:wrapcheck
+	}
+
+	return nil
 }
 
 type DownloadTracker struct {
@@ -138,22 +187,23 @@ func (d *DownloadTracker) Read(p []byte) (int, error) {
 	d.Tracker.Add(n)
 	d.updateTitle()
 
-	return n, err
+	return n, err //nolint:wrapcheck
 }
 
 func (d *DownloadTracker) updateTitle() {
-	elapsed := time.Since(d.startTime).Seconds()
+	// elapsed := time.Since(d.startTime).Seconds()
 
-	speed := float64(d.Downloaded) / elapsed / 1024 / 1024 // MB/s
+	// speed := float64(d.Downloaded) / elapsed / 1024 / 1024 // nolint:mnd
 
-	progress := fmt.Sprintf("%s / %s (%.2f MB/s)",
-		formatSize(d.Downloaded),
-		formatSize(d.Total),
-		speed)
+	// progress := fmt.Sprintf("%s / %s (%.2f MB/s)",
+	// 	formatSize(d.Downloaded),
+	// 	formatSize(d.Total),
+	// 	speed)
 
-	d.Tracker.Title = fmt.Sprintf("%s - %s", d.originalTitle, progress)
+	// d.Tracker.Title = fmt.Sprintf("%s - %s", d.originalTitle, progress)
 }
-func formatSize(bytes int64) string {
+
+func formatSize(bytes int64) string { // nolint:unused
 	const unit = 1024
 	if bytes < unit {
 		return fmt.Sprintf("%d B", bytes)
@@ -169,15 +219,16 @@ func formatSize(bytes int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
+//nolint:cyclop
 func extractZip(zipPath, destPath, renameTarget string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return err
+		return err //nolint:wrapcheck
 	}
 	defer reader.Close()
 
 	for _, file := range reader.File {
-		filePath := filepath.Join(destPath, file.Name)
+		filePath := filepath.Join(destPath, filepath.Clean(file.Name))
 
 		// Rename the directory based on the renameTarget
 		if renameTarget != "" {
@@ -187,34 +238,37 @@ func extractZip(zipPath, destPath, renameTarget string) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			os.MkdirAll(filePath, os.ModePerm)
+			if err := os.MkdirAll(filePath, os.ModePerm); err != nil {
+				return err //nolint:wrapcheck
+			}
 
 			continue
 		}
 
 		if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
 
 		outFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 		if err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
 
 		rc, err := file.Open()
 		if err != nil {
 			outFile.Close()
 
-			return err
+			return err //nolint:wrapcheck
 		}
 
-		_, err = io.Copy(outFile, rc)
+		// TODO: Check bounds.
+		_, err = io.Copy(outFile, rc) //nolint:gosec
 
 		outFile.Close()
 		rc.Close()
 
 		if err != nil {
-			return err
+			return err //nolint:wrapcheck
 		}
 	}
 

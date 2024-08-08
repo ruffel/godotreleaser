@@ -2,9 +2,9 @@ package build
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
-	"github.com/davecgh/go-spew/spew"
 	project "github.com/ruffel/godotreleaser/internal/godot/project"
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/spf13/cobra"
@@ -50,7 +50,7 @@ func runBuild(opts *buildOpts) error {
 	// Download the Godot binary and export templates if they don't exist.
 	//--------------------------------------------------------------------------
 	version := "4.2.2" // TODO: Can we derive this from the project file?
-	useMono := true    // TODO: We can probably derive this requirement from the project file.
+	useMono := false   // TODO: We can probably derive this requirement from the project file.
 
 	//--------------------------------------------------------------------------
 	// We have access to a compatible Godot binary and export templates.
@@ -61,12 +61,17 @@ func runBuild(opts *buildOpts) error {
 		return err //nolint:wrapcheck
 	}
 
-	spew.Dump(paths.Version(version, useMono))
-
 	if err := downloadGodot(version, useMono); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	return nil
+	project := filepath.Join(opts.ProjectDir, "project.godot")
+	binary := filepath.Join(paths.Version(version, useMono), "godot")
+
+	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", project) //nolint:lll
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	return cmd.Run() //nolint:wrapcheck
 
 }
