@@ -31,7 +31,7 @@ linters:
   - funlen
   - gci
   - ginkgolinter
-  - gocheckcompilerdirectives 
+  - gocheckcompilerdirectives
   - gochecknoglobals
   - gochecknoinits
   - gochecksumtype
@@ -92,3 +92,30 @@ linters:
   - wrapcheck
   - wsl
   - zerologlint
+
+linters-settings:
+  mnd:
+    ignored-numbers:
+    # Common file/directory permissions
+    - '0644'
+    - '0666'
+    - '0755'
+    - '0o644'
+    - '0o666'
+    - '0o755'
+    - '0o0644'
+    - '0o0666'
+    - '0o0755'
+  lll:
+    line-length: 200
+
+issues:
+  exclude-rules:
+  - linters:
+    - dupl
+    - funlen
+    - gochecknoglobals
+    - gosec
+    - revive
+    path: _test\.go$
+    comment: 'Test files are allowed to have long functions and duplicate code'
