@@ -10,6 +10,7 @@ import (
 
 	project "github.com/ruffel/godotreleaser/internal/godot/project"
 	"github.com/ruffel/godotreleaser/internal/paths"
+	"github.com/ruffel/godotreleaser/internal/terminal/messages"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
@@ -44,6 +45,8 @@ func NewBuildCmd() *cobra.Command {
 }
 
 func runBuild(opts *buildOpts) error {
+	fmt.Fprintln(os.Stdout, messages.NewSequence("Building Godot Project"))
+
 	path, err := findProjectFile(opts.fs, opts.ProjectDir)
 	if err != nil {
 		return fmt.Errorf("failed to find project file: %w", err)
@@ -63,6 +66,8 @@ func runBuild(opts *buildOpts) error {
 	// TODO: Can we derive this from the project file?
 	version := lo.Ternary(opts.Version == "", "4.2.2", opts.Version)
 	useMono := opts.Mono
+
+	fmt.Fprintln(os.Stdout, messages.NewStage("Configuring Godot "+version))
 
 	if err := downloadGodot(opts.fs, version, useMono); err != nil {
 		return fmt.Errorf("failed to configure godot: %w", err)
@@ -86,11 +91,19 @@ func runBuild(opts *buildOpts) error {
 
 	// e, err := exports.New(filepath.Join(filepath.Dir(path), "export_presets.cfg"))
 
+	fmt.Fprintln(os.Stdout, messages.NewStage("Building Project"))
+
 	cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", "Windows", path)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run() //nolint:wrapcheck
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to build project: %w", err)
+	}
+
+	fmt.Fprintln(os.Stdout, messages.NewFooter("Project Built"))
+
+	return nil
 }
 
 func findProjectFile(fs afero.Fs, path string) (string, error) {
