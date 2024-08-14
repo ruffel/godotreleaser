@@ -27,11 +27,14 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	//--------------------------------------------------------------------------
 	// Check if this configuration already exists...
 	//--------------------------------------------------------------------------
-	cacheDir := paths.Version(version, mono)
 	exportPath := paths.TemplatePath(version, mono)
-	symlinkPath := filepath.Join(cacheDir, "godot")
 
-	binaryExists, err := afero.Exists(fs, symlinkPath)
+	binaryPath, err := paths.Binary(version, mono)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	binaryExists, err := afero.Exists(fs, binaryPath)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
@@ -75,13 +78,13 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 
 	wg.Add(2) //nolint:mnd
 
-	binaryPath := filepath.Join(paths.Version(version, mono), "godot.zip")
+	binaryZipPath := filepath.Join(paths.Version(version, mono), "godot.zip")
 
 	// Download the files concurrently
 	go func() {
 		defer wg.Done()
 
-		if err := fs.MkdirAll(filepath.Dir(binaryPath), 0o0755); err != nil {
+		if err := fs.MkdirAll(filepath.Dir(binaryZipPath), 0o0755); err != nil {
 			return
 		}
 
@@ -98,7 +101,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 			return
 		}
 
-		err = downloader.DownloadFile(context.Background(), binaryAddress, binaryPath, downloader.WithProgress(binaryTracker))
+		err = downloader.DownloadFile(context.Background(), binaryAddress, binaryZipPath, downloader.WithProgress(binaryTracker))
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot binary:", err)
 		}
