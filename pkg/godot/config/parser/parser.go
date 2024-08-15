@@ -91,7 +91,10 @@ func sanitizeData(data []byte) []byte {
 			buffer.WriteString(newlinePlaceholder)
 
 			// If this line ends the multi-line string, flush the buffer
-			if strings.HasSuffix(line, "\"") {
+			//
+			// HACK: Double check that it's not an escaped string. This is lazy,
+			// find a better way.
+			if strings.HasSuffix(line, "\"") && !strings.HasSuffix(line, "\\\"") {
 				sane.WriteString(buffer.String())
 				sane.WriteString("\n")
 				buffer.Reset()
