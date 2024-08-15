@@ -57,3 +57,31 @@ dockers:
       - "--platform=linux/amd64"
     extra_files:
       - scripts/entrypoint.sh
+
+changelog:
+  sort: asc
+  use: git
+  filters:
+    exclude:
+    - "^ci"
+    - "^test"
+    - "^chore"
+    - "merge conflict"
+    - Merge pull request
+    - Merge remote-tracking branch
+    - Merge branch
+  groups:
+  - title: 'New Features'
+    regexp: "^.*feat[(\\w)]*:+.*$"
+    order: 100
+  - title: 'Bug fixes'
+    regexp: "^.*fix[(\\w)]*:+.*$"
+    order: 200
+  - title: 'Dependency updates'
+    regexp: "^.*build\\(deps\\):+.*$"
+    order: 300
+  - title: "Documentation updates"
+    regexp: "^.*docs[(\\w)]*:+.*$"
+    order: 400
+  - title: "Other work"
+    order: 9999
