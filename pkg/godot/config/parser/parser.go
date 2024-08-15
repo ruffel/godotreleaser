@@ -64,25 +64,29 @@ func (g Godot) Marshal(data map[string]interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+//nolint:funlen
 func sanitizeData(data []byte) []byte {
 	var sane bytes.Buffer
 
 	var buffer strings.Builder
 
-	pattern := regexp.MustCompile(`PackedStringArray\((.*?)\)`)
+	var insideJSON, insideMultilineString bool
 
-	// Placeholder for newlines in multi-line strings, not 100% sure this is the best approach.
+	// Placeholder for newlines in multi-line strings
 	const newlinePlaceholder = "__NEWLINE__"
 
 	// Create a scanner to read the data line by line
 	scanner := bufio.NewScanner(bytes.NewReader(data))
 
 	for scanner.Scan() {
-		line := scanner.Text()
+		line := strings.TrimSpace(scanner.Text())
+
+		// Handle PackedStringArray
+		pattern := regexp.MustCompile(`PackedStringArray\((.*?)\)`)
 		line = pattern.ReplaceAllString(line, "[$1]")
 
-		// If buffer contains data, we are processing a multi-line string
-		if buffer.Len() != 0 {
+		// Handle multi-line strings
+		if insideMultilineString {
 			buffer.WriteString(line)
 			buffer.WriteString(newlinePlaceholder)
 
@@ -91,6 +95,8 @@ func sanitizeData(data []byte) []byte {
 				sane.WriteString(buffer.String())
 				sane.WriteString("\n")
 				buffer.Reset()
+
+				insideMultilineString = false
 			}
 
 			continue
@@ -98,12 +104,36 @@ func sanitizeData(data []byte) []byte {
 
 		// Detect the start of a multi-line string (e.g., key="multi-line-start...)
 		if idx := strings.Index(line, "=\""); idx != -1 && !strings.HasSuffix(line, "\"") {
+			insideMultilineString = true
+
 			buffer.WriteString(line)
 			buffer.WriteString(newlinePlaceholder)
 
 			continue
 		}
 
+		// Detect the start of JSON-like structures (e.g., `{`)
+		if strings.Contains(line, "{") && !strings.HasSuffix(line, "}") {
+			insideJSON = true
+		}
+
+		// If inside JSON, compress into a single line
+		if insideJSON {
+			buffer.WriteString(strings.TrimSpace(line))
+
+			// If this line ends the JSON, flush the buffer
+			if strings.Contains(line, "}") {
+				sane.WriteString(buffer.String())
+				sane.WriteString("\n")
+				buffer.Reset()
+
+				insideJSON = false
+			}
+
+			continue
+		}
+
+		// Write non-buffered lines directly to sane
 		sane.WriteString(line + "\n")
 	}
 
