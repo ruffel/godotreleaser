@@ -64,7 +64,7 @@ func (g Godot) Marshal(data map[string]interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-//nolint:funlen
+//nolint:cyclop,funlen
 func sanitizeData(data []byte) []byte {
 	var sane bytes.Buffer
 
