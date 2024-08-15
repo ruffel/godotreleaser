@@ -29,12 +29,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	//--------------------------------------------------------------------------
 	exportPath := paths.TemplatePath(version, mono)
 
-	binaryPath, err := paths.Binary(version, mono)
-	if err != nil {
-		return err //nolint:wrapcheck
-	}
-
-	binaryExists, err := afero.Exists(fs, binaryPath)
+	binaryExists, err := paths.CheckBinaryExists(version, mono)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
@@ -140,7 +135,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		// Now that we have the files, we can extract them.
 		pterm.Info.Println("Extracting Godot binary...")
 
-		if err := unzip.Extract(binaryPath, filepath.Join(versionDir, "editor")); err != nil {
+		if err := unzip.Extract(binaryZipPath, filepath.Join(versionDir, "editor")); err != nil {
 			pterm.Error.Println("Failed to extract Godot binary:", err)
 
 			return err //nolint:wrapcheck
@@ -158,7 +153,7 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	}
 
 	// Clean up zip files
-	if err := os.Remove(binaryPath); err != nil {
+	if err := os.Remove(binaryZipPath); err != nil {
 		pterm.Warning.Printf("Failed to remove binary zip file: %v\n", err)
 	}
 

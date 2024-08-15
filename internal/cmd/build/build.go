@@ -86,7 +86,7 @@ func runBuild(opts *buildOpts) error {
 
 	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755)
 
-	binary, err := paths.Binary(version, useMono)
+	binary, err := paths.GetBinary(version, useMono)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
