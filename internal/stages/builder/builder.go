@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/afero"
 )
 
-func Run(_ context.Context, fs afero.Fs, version string, mono bool, path string) error {
+func Run(_ context.Context, _ afero.Fs, version string, mono bool, path string) error {
 	if err := os.MkdirAll(paths.Version(version, mono), 0o0755); err != nil {
 		return err //nolint:wrapcheck
 	}
