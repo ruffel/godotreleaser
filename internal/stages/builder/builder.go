@@ -10,7 +10,6 @@ import (
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/ruffel/godotreleaser/internal/terminal/messages"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/exports"
-	"github.com/samber/lo"
 	"github.com/spf13/afero"
 )
 
@@ -18,8 +17,6 @@ func Run(_ context.Context, _ afero.Fs, version string, mono bool, path string) 
 	if err := os.MkdirAll(paths.Version(version, mono), 0o0755); err != nil {
 		return err //nolint:wrapcheck
 	}
-
-	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755)
 
 	binary, err := paths.GetBinary(version, mono)
 	if err != nil {
