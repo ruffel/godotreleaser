@@ -111,6 +111,8 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot binary:", err)
 		}
+
+		slog.Debug("Downloaded godot binaries", "version", version, "mono", mono, "url", binaryAddress, "dst", binaryZipPath)
 	}()
 
 	templatePath := filepath.Join(paths.Version(version, mono), "templates.tpz")
@@ -134,6 +136,8 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		if err != nil {
 			pterm.Error.Println("Failed to download Godot templates:", err)
 		}
+
+		slog.Debug("Downloaded godot export templates", "version", version, "mono", mono, "url", templateAddress, "dst", templatePath)
 	}()
 
 	wg.Wait()
@@ -146,21 +150,31 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 		// Now that we have the files, we can extract them.
 		pterm.Info.Println("Extracting Godot binary...")
 
-		if err := unzip.Extract(binaryZipPath, filepath.Join(versionDir, "editor")); err != nil {
+		src := binaryZipPath
+		dst := filepath.Join(versionDir, "editor")
+
+		if err := unzip.Extract(src, dst); err != nil {
 			pterm.Error.Println("Failed to extract Godot binary:", err)
 
 			return err //nolint:wrapcheck
 		}
+
+		slog.Debug("Extracted godot binaries", "src", src, "dst", dst)
 	}
 
 	if !exportExists {
 		pterm.Info.Println("Extracting Godot templates...")
 
-		if err := unzip.Extract(templatePath, paths.TemplatePath(version, mono)); err != nil {
+		src := templatePath
+		dst := paths.TemplatePath(version, mono)
+
+		if err := unzip.Extract(src, dst); err != nil {
 			pterm.Error.Println("Failed to extract Godot templates:", err)
 
 			return err //nolint:wrapcheck
 		}
+
+		slog.Debug("Extracted Godot export templates", "src", src, "dst", dst)
 	}
 
 	// Clean up zip files
