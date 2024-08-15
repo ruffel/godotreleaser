@@ -1,16 +1,17 @@
 package build
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 
-	"github.com/ruffel/godotreleaser/internal/paths"
+	"github.com/ruffel/godotreleaser/internal/stages/builder"
+	"github.com/ruffel/godotreleaser/internal/stages/dependencies"
+	"github.com/ruffel/godotreleaser/internal/terminal"
 	"github.com/ruffel/godotreleaser/internal/terminal/messages"
-	"github.com/ruffel/godotreleaser/pkg/godot/config/exports"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/project"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
@@ -33,8 +34,8 @@ func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build the Godot project",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runBuild(opts)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runBuild(cmd.Context(), opts)
 		},
 	}
 
@@ -46,8 +47,8 @@ func NewBuildCmd() *cobra.Command {
 }
 
 //nolint:funlen
-func runBuild(opts *buildOpts) error {
-	fmt.Fprintln(os.Stdout, messages.NewSequence("Building Godot Project"))
+func runBuild(ctx context.Context, opts *buildOpts) error {
+	terminal.Send(messages.NewSequence("Building Godot Project"))
 
 	path, err := findProjectFile(opts.fs, opts.ProjectDir)
 	if err != nil {
@@ -69,46 +70,15 @@ func runBuild(opts *buildOpts) error {
 	version := lo.Ternary(opts.Version == "", "4.2.2", opts.Version)
 	useMono := opts.Mono
 
-	fmt.Fprintln(os.Stdout, messages.NewStage("Configuring Godot "+version))
-
-	if err := downloadGodot(opts.fs, version, useMono); err != nil {
-		return fmt.Errorf("failed to configure godot: %w", err)
-	}
-
-	//--------------------------------------------------------------------------
-	// We have access to a compatible Godot binary and export templates.
-	//
-	// Build the project.
-	//--------------------------------------------------------------------------
-	if err := os.MkdirAll(paths.Version(version, useMono), 0o0755); err != nil {
+	if err := dependencies.Run(ctx, opts.fs, version, useMono); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	_ = os.MkdirAll(filepath.Join(lo.Must(os.Getwd()), "examples", "exampleA", "bin"), 0o755)
-
-	binary, err := paths.GetBinary(version, useMono)
-	if err != nil {
+	if err := builder.Run(ctx, opts.fs, version, useMono, path); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	e, err := exports.New(filepath.Join(filepath.Dir(path), "export_presets.cfg"))
-	if err != nil {
-		return err //nolint:wrapcheck
-	}
-
-	for _, name := range e.PresetNames() {
-		fmt.Fprintln(os.Stdout, messages.NewStage(fmt.Sprintf("Building Project (%s)", name)))
-
-		cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", name, path)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to build project: %w", err)
-		}
-	}
-
-	fmt.Fprintln(os.Stdout, messages.NewFooter("Project Built"))
+	terminal.Send(messages.NewFooter("Project Built"))
 
 	return nil
 }

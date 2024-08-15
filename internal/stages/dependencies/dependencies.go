@@ -1,4 +1,4 @@
-package build
+package dependencies
 
 import (
 	"context"
@@ -13,17 +13,28 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/ruffel/godotreleaser/internal/godot/url"
 	"github.com/ruffel/godotreleaser/internal/paths"
+	"github.com/ruffel/godotreleaser/internal/terminal"
+	"github.com/ruffel/godotreleaser/internal/terminal/messages"
 	"github.com/ruffel/godotreleaser/internal/utils/downloader"
 	"github.com/ruffel/godotreleaser/internal/utils/unzip"
 	"github.com/samber/lo"
 	"github.com/spf13/afero"
 )
 
+func Run(_ context.Context, fs afero.Fs, version string, mono bool) error {
+	terminal.Send(messages.NewStage("Configuring Godot " + version))
+
+	if err := downloadGodot(fs, version, mono); err != nil {
+		return err // nolint:wrapcheck
+	}
+
+	return nil
+}
+
 //nolint:cyclop,funlen
 func downloadGodot(fs afero.Fs, version string, mono bool) error {
 	slog.Info("Fetching Godot binaries and export templates", "version", version, "mono", mono)
 
-	_ = fs
 	//--------------------------------------------------------------------------
 	// Check if this configuration already exists...
 	//--------------------------------------------------------------------------
