@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pterm/pterm"
 	"github.com/samber/lo"
 )
 
@@ -74,10 +73,49 @@ func TemplatePath(version string, mono bool) string {
 	return filepath.Join(root, name, "export_templates", base)
 }
 
-func Binary(version string, mono bool) (string, error) {
+// CheckBinaryExists checks if the Godot binary exists in the specified version directory.
+func CheckBinaryExists(version string, mono bool) (bool, error) {
+	dirPath := Version(version, mono)
+
+	// Check if the directory exists
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return false, nil
+	}
+
+	var godotBinaryFound bool
+
+	walkFn := func(_ string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && strings.HasPrefix(info.Name(), "Godot") {
+			godotBinaryFound = true
+
+			return filepath.SkipDir
+		}
+
+		return nil
+	}
+
+	if err := filepath.Walk(dirPath, walkFn); err != nil {
+		return false, err //nolint:wrapcheck
+	}
+
+	return godotBinaryFound, nil
+}
+
+// GetBinary retrieves the Godot binary's path for the specified version.
+func GetBinary(version string, mono bool) (string, error) {
+	dirPath := Version(version, mono)
+
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return "", errors.New("directory does not exist, please download the binary")
+	}
+
 	var godotBinary string
 
-	err := filepath.Walk(Version(version, mono), func(path string, info os.FileInfo, err error) error {
+	walkFn := func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -89,16 +127,13 @@ func Binary(version string, mono bool) (string, error) {
 		}
 
 		return nil
-	})
-	if err != nil {
-		pterm.Error.Printf("Failed to find Godot binary: %v\n", err)
+	}
 
+	if err := filepath.Walk(dirPath, walkFn); err != nil {
 		return "", err //nolint:wrapcheck
 	}
 
 	if godotBinary == "" {
-		pterm.Error.Println("Godot binary not found")
-
 		return "", errors.New("godot binary not found")
 	}
 
