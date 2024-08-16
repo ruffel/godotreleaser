@@ -7,8 +7,16 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/samber/lo"
 	"gopkg.in/ini.v1"
 )
+
+const (
+	arraySentinel   = "__ARRAY_SENTINEL__"
+	newlineSentinel = "__NEWLINE__"
+)
+
+var arrayPattern = regexp.MustCompile(`^(.*)=.*PackedStringArray\((.*)\).*$`)
 
 type Godot struct{}
 
@@ -16,7 +24,7 @@ func (g Godot) Unmarshal(data []byte) (map[string]interface{}, error) {
 	sane := sanitizeData(data)
 
 	// Load sanitized data into INI object
-	d, err := ini.Load(sane)
+	d, err := ini.LoadSources(ini.LoadOptions{AllowShadows: true, AllowDuplicateShadowValues: true}, sane)
 	if err != nil {
 		return nil, err //nolint:wrapcheck
 	}
@@ -28,7 +36,22 @@ func (g Godot) Unmarshal(data []byte) (map[string]interface{}, error) {
 		sectionMap := make(map[string]interface{})
 
 		for _, key := range section.Keys() {
-			sectionMap[key.Name()] = key.Value()
+			values := key.ValueWithShadows()
+
+			// We can't differentiate between an empty/single value array with a
+			// scalar value.
+			//
+			// To work around this, we use a sentinel value to indicate that the
+			// key is an array. If the sentinel is present, we prune it and
+			// return the remaining values as an array.
+			switch {
+			case len(values) == 1 && values[0] == arraySentinel:
+				sectionMap[key.Name()] = []string{}
+			case len(values) > 1:
+				sectionMap[key.Name()] = lo.Ternary(values[0] == arraySentinel, values[1:], values)
+			default:
+				sectionMap[key.Name()] = key.Value()
+			}
 		}
 
 		result[section.Name()] = sectionMap
@@ -64,74 +87,51 @@ func (g Godot) Marshal(data map[string]interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-//nolint:cyclop,funlen
+// sanitizeData modifies the input data buffer to attempt to make it parseable by the INI parser.
 func sanitizeData(data []byte) []byte {
 	var sane bytes.Buffer
+
+	// Create a scanner to read the data line by line
+	scanner := bufio.NewScanner(bytes.NewReader(data))
 
 	var buffer strings.Builder
 
 	var insideJSON, insideMultilineString bool
 
-	// Placeholder for newlines in multi-line strings
-	const newlinePlaceholder = "__NEWLINE__"
-
-	// Create a scanner to read the data line by line
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 
-		// Handle PackedStringArray
-		pattern := regexp.MustCompile(`PackedStringArray\((.*?)\)`)
-		line = pattern.ReplaceAllString(line, "[$1]")
-
-		// Handle multi-line strings
-		if insideMultilineString {
-			buffer.WriteString(line)
-			buffer.WriteString(newlinePlaceholder)
-
-			// If this line ends the multi-line string, flush the buffer
-			//
-			// HACK: Double check that it's not an escaped string. This is lazy,
-			// find a better way.
-			if strings.HasSuffix(line, "\"") && !strings.HasSuffix(line, "\\\"") {
-				sane.WriteString(buffer.String())
-				sane.WriteString("\n")
-				buffer.Reset()
-
-				insideMultilineString = false
-			}
+		if isPackedStringArray(line) {
+			handlePackedStringArray(line, &sane)
 
 			continue
 		}
 
-		// Detect the start of a multi-line string (e.g., key="multi-line-start...)
-		if idx := strings.Index(line, "=\""); idx != -1 && !strings.HasSuffix(line, "\"") {
+		if insideMultilineString {
+			insideMultilineString = handleMultilineString(line, &buffer, &sane)
+
+			continue
+		}
+
+		if isStartOfMultilineString(line) {
 			insideMultilineString = true
 
 			buffer.WriteString(line)
-			buffer.WriteString(newlinePlaceholder)
+			buffer.WriteString(newlineSentinel)
 
 			continue
 		}
 
-		// Detect the start of JSON-like structures (e.g., `{`)
-		if strings.Contains(line, "{") && !strings.HasSuffix(line, "}") {
-			insideJSON = true
+		if insideJSON {
+			insideJSON = handleJSON(line, &buffer, &sane)
+
+			continue
 		}
 
-		// If inside JSON, compress into a single line
-		if insideJSON {
-			buffer.WriteString(strings.TrimSpace(line))
+		if isStartOfJSON(line) {
+			insideJSON = true
 
-			// If this line ends the JSON, flush the buffer
-			if strings.Contains(line, "}") {
-				sane.WriteString(buffer.String())
-				sane.WriteString("\n")
-				buffer.Reset()
-
-				insideJSON = false
-			}
+			buffer.WriteString(strings.TrimSpace(line) + " ")
 
 			continue
 		}
@@ -141,4 +141,69 @@ func sanitizeData(data []byte) []byte {
 	}
 
 	return sane.Bytes()
+}
+
+func isPackedStringArray(line string) bool {
+	return arrayPattern.MatchString(line)
+}
+
+func handlePackedStringArray(line string, sane *bytes.Buffer) {
+	const lineFormat = "%s = %s\n"
+
+	matches := arrayPattern.FindStringSubmatch(line)
+	k := matches[1]
+	v := matches[2]
+
+	// Split the array into individual values
+	values := strings.Split(v, ",")
+
+	// Write the array sentinel to the buffer. This differentiates between an empty array and a single value.
+	sane.WriteString(fmt.Sprintf(lineFormat, k, arraySentinel))
+
+	// Write each value to the buffer
+	for _, value := range values {
+		sane.WriteString(fmt.Sprintf(lineFormat, k, strings.TrimSpace(value)))
+	}
+}
+
+func isStartOfMultilineString(line string) bool {
+	return strings.Contains(line, "=\"") && !strings.HasSuffix(line, "\"")
+}
+
+func handleMultilineString(line string, buffer *strings.Builder, sane *bytes.Buffer) bool {
+	buffer.WriteString(line)
+
+	// End of multi-line string, flush the buffer
+	if strings.HasSuffix(line, "\"") && !strings.HasSuffix(line, "\\\"") {
+		sane.WriteString(buffer.String())
+		sane.WriteString("\n")
+		buffer.Reset()
+
+		return false
+	}
+
+	// Still inside multi-line string
+	buffer.WriteString(newlineSentinel)
+
+	return true
+}
+
+func isStartOfJSON(line string) bool {
+	return strings.Contains(line, "{") && !strings.HasSuffix(line, "}")
+}
+
+func handleJSON(line string, buffer *strings.Builder, sane *bytes.Buffer) bool {
+	buffer.WriteString(strings.TrimSpace(line) + " ")
+
+	// End of JSON-like structure, flush the buffer
+	if strings.Contains(line, "}") {
+		sane.WriteString(buffer.String())
+		sane.WriteString("\n")
+		buffer.Reset()
+
+		return false
+	}
+
+	// Still inside JSON
+	return true
 }
