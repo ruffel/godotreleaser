@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/ruffel/godotreleaser/internal/paths"
 	"github.com/ruffel/godotreleaser/internal/terminal"
 	"github.com/ruffel/godotreleaser/internal/terminal/messages"
+	"github.com/ruffel/godotreleaser/pkg/godot/client"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/exports"
 	"github.com/spf13/afero"
 )
 
-func Run(_ context.Context, fs afero.Fs, version string, mono bool, path string) error {
+func Run(ctx context.Context, fs afero.Fs, version string, mono bool, path string) error {
 	if err := os.MkdirAll(paths.Version(version, mono), 0o0755); err != nil {
 		return err //nolint:wrapcheck
 	}
@@ -25,7 +25,7 @@ func Run(_ context.Context, fs afero.Fs, version string, mono bool, path string)
 		return err //nolint:wrapcheck
 	}
 
-	binary, err := paths.GetBinary(version, mono)
+	c, err := client.NewFromVersion(version, mono)
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
@@ -49,12 +49,8 @@ func Run(_ context.Context, fs afero.Fs, version string, mono bool, path string)
 			slog.Debug("Created preset output directory", "preset", name, "dst", dst)
 		}
 
-		cmd := exec.Command(binary, "--verbose", "--headless", "--quit", "--export-release", name, path)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to build project: %w", err)
+		if err := c.Build(ctx, &client.BuildOptions{Preset: name, Project: path, ExportType: client.ExportRelease}); err != nil {
+			return err //nolint:wrapcheck
 		}
 
 		slog.Info("Successfully built target preset", "preset", name, "dst", dst)
