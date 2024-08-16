@@ -20,7 +20,7 @@ type Preset struct {
 	Platform                 string        `koanf:"platform"`
 	Runnable                 bool          `koanf:"runnable"`
 	DedicatedServer          bool          `koanf:"dedicated_server"`
-	CustomFeatures           string        `koanf:"custom_features"`
+	CustomFeatures           []string      `koanf:"custom_features"`
 	IncludeFilter            string        `koanf:"include_filter"`
 	ExcludeFilter            string        `koanf:"exclude_filter"`
 	ExportPath               string        `koanf:"export_path"`
@@ -33,8 +33,43 @@ type Preset struct {
 
 // PresetOptions contains various configuration options for the Preset.
 type PresetOptions struct {
-	CustomTemplateDebug      string `koanf:"custom_template/debug"`
-	BinaryFormatArchitecture string `koanf:"binary_format/architecture"`
+	CustomTemplateDebug           string   `koanf:"custom_template/debug"`
+	CustomTemplateRelease         string   `koanf:"custom_template/release"`
+	DebugExportConsoleWrapper     int      `koanf:"debug_export/console_wrapper"`
+	BinaryFormatArchitecture      string   `koanf:"binary_format/architecture"`
+	BinaryFormatEmbedPCK          bool     `koanf:"binary_format/embed_pck"`
+	TextureFormatBPTC             bool     `koanf:"texture_format/bptc"`
+	TextureFormatS3TC             bool     `koanf:"texture_format/s3tc"`
+	TextureFormatETC              bool     `koanf:"texture_format/etc"`
+	TextureFormatETC2             bool     `koanf:"texture_format/etc2"`
+	CodeSignEnable                bool     `koanf:"codesign/enable"`
+	CodeSignTimestamp             bool     `koanf:"codesign/timestamp"`
+	CodeSignTimestampServerURL    string   `koanf:"codesign/timestamp_server_url"`
+	CodeSignDigestAlgorithm       int      `koanf:"codesign/digest_algorithm"`
+	CodeSignDescription           string   `koanf:"codesign/description"`
+	CodeSignCustomOptions         []string `koanf:"codesign/custom_options"`
+	ApplicationModifyResources    bool     `koanf:"application/modify_resources"`
+	ApplicationIcon               string   `koanf:"application/icon"`
+	ApplicationConsoleWrapperIcon string   `koanf:"application/console_wrapper_icon"`
+	ApplicationIconInterpolation  int      `koanf:"application/icon_interpolation"`
+	ApplicationFileVersion        string   `koanf:"application/file_version"`
+	ApplicationProductVersion     string   `koanf:"application/product_version"`
+	ApplicationCompanyName        string   `koanf:"application/company_name"`
+	ApplicationProductName        string   `koanf:"application/product_name"`
+	ApplicationFileDescription    string   `koanf:"application/file_description"`
+	ApplicationCopyright          string   `koanf:"application/copyright"`
+	ApplicationTrademarks         string   `koanf:"application/trademarks"`
+	ApplicationExportAngle        int      `koanf:"application/export_angle"`
+	SSHRemoteDeployEnabled        bool     `koanf:"ssh_remote_deploy/enabled"`
+	SSHRemoteDeployHost           string   `koanf:"ssh_remote_deploy/host"`
+	SSHRemoteDeployPort           string   `koanf:"ssh_remote_deploy/port"`
+	SSHRemoteDeployExtraArgsSSH   string   `koanf:"ssh_remote_deploy/extra_args_ssh"`
+	SSHRemoteDeployExtraArgsSCP   string   `koanf:"ssh_remote_deploy/extra_args_scp"`
+	SSHRemoteDeployRunScript      string   `koanf:"ssh_remote_deploy/run_script"`
+	SSHRemoteDeployCleanupScript  string   `koanf:"ssh_remote_deploy/cleanup_script"`
+	DotNetIncludeScriptsContent   bool     `koanf:"dotnet/include_scripts_content"`
+	DotNetIncludeDebugSymbols     bool     `koanf:"dotnet/include_debug_symbols"`
+	DotNetEmbedBuildOutputs       bool     `koanf:"dotnet/embed_build_outputs"`
 }
 
 // Config holds the loaded configuration and its presets.
