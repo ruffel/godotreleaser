@@ -83,48 +83,87 @@ func runBuild(ctx context.Context, opts *buildOpts) error {
 	return nil
 }
 
+var ErrProjectFileNotFound = errors.New("project.godot file not found")
+
 func findProjectFile(fs afero.Fs, path string) (string, error) {
 	const filename = "project.godot"
+
+	// Iterate through each path and search for the project file
+	for _, searchPath := range determineSearchPaths(path) {
+		projectFilePath, err := checkProjectFile(fs, searchPath, filename)
+		if err != nil {
+			return "", err
+		}
+
+		if projectFilePath != "" {
+			return resolveAbsolutePath(projectFilePath)
+		}
+	}
+
+	return "", ErrProjectFileNotFound
+}
+
+func checkProjectFile(fs afero.Fs, basePath, filename string) (string, error) {
+	// Check if the provided basePath is a file or a directory
+	info, err := fs.Stat(basePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat path %s: %w", basePath, err)
+	}
+
+	if info.IsDir() {
+		// If it's a directory, check for the project.godot file inside it
+		projectPath := filepath.Join(basePath, filename)
+		slog.Debug("Checking directory for project file", "path", projectPath)
+
+		exists, err := afero.Exists(fs, projectPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to check if project file exists in directory %s: %w", basePath, err)
+		}
+
+		if exists {
+			return projectPath, nil
+		}
+	} else {
+		slog.Debug("Checking if the path is the project file", "path", basePath)
+
+		if filepath.Base(basePath) == filename {
+			return basePath, nil
+		}
+	}
+
+	return "", nil
+}
+
+func determineSearchPaths(path string) []string {
+	idiomaticPaths := []string{
+		"/app",
+		"/workspaces",
+		"/src",
+		"/code",
+	}
 
 	if path == "" {
 		cwd, err := os.Getwd()
 		if err != nil {
-			return "", fmt.Errorf("failed to find CWD: %w", err)
+			slog.Warn("Failed to find CWD, cannot use as search path", "error", err)
+
+			return idiomaticPaths
 		}
 
-		path = cwd
+		return append([]string{cwd}, idiomaticPaths...)
 	}
 
-	// Check if the path is a valid file or directory
-	info, err := fs.Stat(path)
-	if err != nil {
-		return "", err //nolint:wrapcheck
-	}
+	return []string{path}
+}
 
-	// If the path is a directory, append the filename to the path
-	if info.IsDir() {
-		path = filepath.Join(path, filename)
-	}
-
-	// Check if the file exists
-	exists, err := afero.Exists(fs, path)
-	if err != nil {
-		return "", err //nolint:wrapcheck
-	}
-
-	if !exists {
-		return "", errors.New("project file not found")
-	}
-
-	// Ensure the file is indeed named 'project.godot'
-	if filepath.Base(path) != filename {
-		return "", errors.New("path does not point to a 'project.godot' file")
-	}
-
-	// Get the absolute path to return
+func resolveAbsolutePath(path string) (string, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return "", err //nolint:wrapcheck
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	if filepath.Base(absPath) != "project.godot" {
+		return "", fmt.Errorf("path does not point to a 'project.godot' file: %s", absPath)
 	}
 
 	return absPath, nil
