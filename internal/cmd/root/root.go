@@ -7,6 +7,7 @@ import (
 
 	charmlog "github.com/charmbracelet/log"
 	"github.com/ruffel/godotreleaser/internal/cmd/build"
+	"github.com/ruffel/godotreleaser/internal/cmd/dependencies"
 	"github.com/ruffel/godotreleaser/internal/cmd/version"
 	"github.com/spf13/cobra"
 )
@@ -24,8 +25,10 @@ func NewRootCmd() *cobra.Command {
 			return nil
 		},
 	}
+
 	cmd.AddCommand(build.NewBuildCmd())
 	cmd.AddCommand(version.NewCmdVersion())
+	cmd.AddCommand(dependencies.NewDependenciesCmd())
 
 	return cmd
 }
