@@ -6,6 +6,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/charmbracelet/log v0.4.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/knadh/koanf/providers/file v1.1.0
 	github.com/knadh/koanf/v2 v2.1.1
 	github.com/pterm/pterm v0.12.79
@@ -28,7 +29,6 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.0.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
-	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/knadh/koanf/maps v0.1.1 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
