@@ -2,10 +2,14 @@ package project
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
+	"github.com/hashicorp/go-version"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/parser"
+	"github.com/samber/lo"
 )
 
 type Config struct {
@@ -14,6 +18,32 @@ type Config struct {
 	Features  []string     `koanf:"application.config/features"`
 	MainScene string       `koanf:"application.run/main_scene"`
 	raw       *koanf.Koanf `koanf:"-"`
+}
+
+func (c *Config) ContainsMono() bool {
+	// TODO: This is a bit hacky
+	return lo.ContainsBy(c.raw.Keys(), func(k string) bool {
+		return strings.HasPrefix(k, "dotnet")
+	})
+}
+
+func (c *Config) EngineVersion() *version.Version {
+	// Parse any "versions" found in the features list.
+	list := lo.FilterMap(c.Features, func(f string, _ int) (*version.Version, bool) {
+		version, err := version.NewVersion(f)
+
+		return version, err == nil
+	})
+
+	// If we have any versions, return the highest one.
+	if len(list) == 0 {
+		return nil
+	}
+
+	// Sort the versions and return the highest one.
+	sort.Sort(version.Collection(list))
+
+	return list[len(list)-1]
 }
 
 func New(path string) (*Config, error) {

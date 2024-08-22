@@ -13,7 +13,6 @@ import (
 	"github.com/ruffel/godotreleaser/internal/terminal"
 	"github.com/ruffel/godotreleaser/internal/terminal/messages"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/project"
-	"github.com/samber/lo"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +21,7 @@ type buildOpts struct {
 	ProjectDir string
 	Version    string
 	Mono       bool
+	MonoSet    bool
 	// Dependencies
 	fs afero.Fs
 }
@@ -35,6 +35,9 @@ func NewBuildCmd() *cobra.Command {
 		Use:   "build",
 		Short: "Build the Godot project",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// TODO: Ehhhh... this is a bit hacky
+			opts.MonoSet = cmd.Flags().Changed("with-mono")
+
 			return runBuild(cmd.Context(), opts)
 		},
 	}
@@ -57,7 +60,8 @@ func runBuild(ctx context.Context, opts *buildOpts) error {
 
 	slog.Debug("Found Godot project file", "path", path)
 
-	if _, err := project.New(path); err != nil {
+	project, err := project.New(path)
+	if err != nil {
 		return fmt.Errorf("project file is not valid: %w", err)
 	}
 
@@ -66,9 +70,33 @@ func runBuild(ctx context.Context, opts *buildOpts) error {
 	//
 	// Download the Godot binary and export templates if they don't exist.
 	//--------------------------------------------------------------------------
-	// TODO: Can we derive this from the project file?
-	version := lo.Ternary(opts.Version == "", "4.3", opts.Version)
-	useMono := opts.Mono
+	version := func() string {
+		if opts.Version != "" {
+			slog.Debug("Using version provided by user", "version", opts.Version)
+
+			return opts.Version
+		}
+
+		if project.EngineVersion() != nil {
+			version := project.EngineVersion().Original()
+
+			slog.Debug("Using version found in project.godot", "version", version)
+
+			return version
+		}
+
+		slog.Debug("Using default version", "version", "4.3")
+
+		return "4.3" // Or error?
+	}()
+
+	useMono := func() bool {
+		if opts.MonoSet {
+			return opts.Mono
+		}
+
+		return project.ContainsMono()
+	}()
 
 	if err := dependencies.Run(ctx, opts.fs, version, useMono); err != nil {
 		return err //nolint:wrapcheck
