@@ -6,6 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
 	"github.com/ruffel/godotreleaser/pkg/godot/config/parser"
 	"github.com/samber/lo"
@@ -88,6 +89,47 @@ func (c *Config) PresetNames() []string {
 	return lo.Map(c.presets, func(preset Preset, _ int) string {
 		return preset.Name
 	})
+}
+
+func (c *Config) Render() (string, error) {
+	// Use a dummy separator to avoid any conflicts with the preset keys.
+	k := koanf.New("__DUMMY__")
+
+	// Iterate over the presets and add them to the Koanf instance.
+	for i, preset := range c.presets {
+		p := koanf.New(".")
+		if err := p.Load(structs.Provider(preset, "koanf"), nil); err != nil {
+			slog.Error("Failed to load preset", "index", i, "error", err)
+
+			return "", err //nolint:wrapcheck
+		}
+
+		if err := k.Set(fmt.Sprintf("preset.%d", i), p.All()); err != nil {
+			slog.Error("Failed to set preset", "index", i, "error", err)
+
+			return "", err //nolint:wrapcheck
+		}
+
+		o := koanf.New(".")
+		if err := o.Load(structs.Provider(preset.Options, "koanf"), nil); err != nil {
+			slog.Error("Failed to load preset options", "index", i, "error", err)
+
+			return "", err //nolint:wrapcheck
+		}
+
+		if err := k.Set(fmt.Sprintf("preset.%d.options", i), o.All()); err != nil {
+			slog.Error("Failed to set preset options", "index", i, "error", err)
+
+			return "", err //nolint:wrapcheck
+		}
+	}
+
+	data, err := k.Marshal(parser.Godot{})
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal configuration: %w", err)
+	}
+
+	return string(data), nil
 }
 
 // New loads the configuration from the specified file and returns a Config object.

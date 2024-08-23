@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_Unmarshal_Simple(t *testing.T) {
+func TestParser_Unmarshal_Simple(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -252,6 +252,137 @@ func Test_Unmarshal_Simple(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+
+func TestParser_Marshal_Simple(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input map[string]interface{}
+		want  string
+	}{
+		{
+			name: "single default entry",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"config_version": "5",
+				},
+			},
+			want: heredoc.Doc(`
+				config_version = 5
+			`),
+		},
+		{
+			name: "multiple defaults entries",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"foo": "5",
+					"bar": 5,
+				},
+			},
+			want: heredoc.Doc(`
+				bar = 5
+				foo = 5
+			`),
+		},
+		{
+			name: "multiple sections",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"foo": "5",
+				},
+				"section": map[string]interface{}{
+					"bar": "5",
+				},
+			},
+			want: heredoc.Doc(`
+				foo = 5
+
+				[section]
+				bar = 5
+			`),
+		},
+		{
+			name: "multiple sections (2)",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"foo": "5",
+				},
+				"section": map[string]interface{}{
+					"bar": "5",
+				},
+				"section2": map[string]interface{}{
+					"baz": "5",
+				},
+			},
+			want: heredoc.Doc(`
+				foo = 5
+
+				[section]
+				bar = 5
+
+				[section2]
+				baz = 5
+			`),
+		},
+		{
+			name: "packed string array",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"array": []string{"foo", "bar", "baz"},
+				},
+			},
+			want: heredoc.Doc(`
+				array = PackedStringArray("foo", "bar", "baz")
+			`),
+		},
+		{
+			name: "empty packed string array",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"array": []string{},
+				},
+			},
+			want: heredoc.Doc(`
+				array = PackedStringArray()
+			`),
+		},
+		{
+			name: "inline JSON",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"json": `{"foo": "bar", "baz": 42 }`,
+				},
+			},
+			want: heredoc.Doc(`
+				json = {"foo": "bar", "baz": 42 }
+			`),
+		},
+		{
+			name: "multiline strings",
+			input: map[string]interface{}{
+				"DEFAULT": map[string]interface{}{
+					"multiline": "line1__NEWLINE__line2__NEWLINE__line3",
+				},
+			},
+			want: heredoc.Doc(`
+				multiline = """line1
+				line2
+				line3"""
+			`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parser.Godot{}.Marshal(tt.input)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, string(got))
 		})
 	}
 }
