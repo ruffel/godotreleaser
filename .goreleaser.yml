@@ -59,8 +59,6 @@ dockers:
       - scripts/entrypoint.sh
 
 changelog:
-  sort: asc
-  use: git
   filters:
     exclude:
     - "^ci"
