@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -63,17 +64,32 @@ func (g Godot) Unmarshal(data []byte) (map[string]interface{}, error) {
 func (g Godot) Marshal(data map[string]interface{}) ([]byte, error) {
 	cfg := ini.Empty()
 
-	for sectionName, sectionData := range data {
+	// Get a sorted list of section names
+	sectionNames := lo.Keys(data)
+	sort.StringSlice.Sort(sectionNames) // Sort the section names to ensure consistent order
+
+	for _, sectionName := range sectionNames {
+		sectionData := data[sectionName]
+
 		section, err := cfg.NewSection(sectionName)
 		if err != nil {
 			return nil, err //nolint:wrapcheck
 		}
 
 		if sectionMap, ok := sectionData.(map[string]interface{}); ok {
-			for key, value := range sectionMap {
-				_, err := section.NewKey(key, fmt.Sprintf("%v", value))
-				if err != nil {
-					return nil, err //nolint:wrapcheck
+			// Get sorted keys for the section to ensure consistent order
+			keys := lo.Keys(sectionMap)
+			sort.StringSlice.Sort(keys)
+
+			for _, key := range keys {
+				value := sectionMap[key]
+				switch v := value.(type) {
+				case []string:
+					// This is an array, we need to reconstruct the PackedStringArray format
+					_, _ = section.NewKey(key, reconstructPackedStringArray(v))
+				default:
+					// For normal strings or other data types, handle sentinel replacements
+					_, _ = section.NewKey(key, reverseSentinelReplacements(fmt.Sprintf("%v", v)))
 				}
 			}
 		}
@@ -85,6 +101,29 @@ func (g Godot) Marshal(data map[string]interface{}) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// Helper function to reconstruct PackedStringArray from the string slice
+func reconstructPackedStringArray(values []string) string {
+	if len(values) == 0 {
+		return "PackedStringArray()"
+	}
+
+	// Quote each value properly
+	quotedValues := lo.Map(values, func(val string, _ int) string {
+		return fmt.Sprintf("\"%s\"", val)
+	})
+
+	return fmt.Sprintf("PackedStringArray(%s)", strings.Join(quotedValues, ", "))
+}
+
+// Helper function to reverse sentinel replacements
+func reverseSentinelReplacements(value string) string {
+	// Replace newline sentinel with actual newlines
+	value = strings.ReplaceAll(value, newlineSentinel, "\n")
+
+	// Return the modified value
+	return value
 }
 
 // sanitizeData modifies the input data buffer to attempt to make it parseable by the INI parser.
