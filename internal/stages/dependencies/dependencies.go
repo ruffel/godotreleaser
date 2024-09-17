@@ -2,13 +2,10 @@ package dependencies
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/pterm/pterm"
 	"github.com/ruffel/godotreleaser/internal/godot/url"
@@ -192,67 +189,31 @@ func downloadGodot(fs afero.Fs, version string, mono bool) error {
 }
 
 type DownloadTracker struct {
-	Downloaded    int64
-	Total         int64
-	Tracker       *pterm.ProgressbarPrinter
-	reader        io.Reader
-	startTime     time.Time
-	originalTitle string
+	total      int64
+	downloaded int64
+	Tracker    *pterm.ProgressbarPrinter
+}
+
+func (d *DownloadTracker) Update(downloaded int64, total int64) {
+	if d.total != total {
+		d.total = total
+		d.Tracker.Total = int(d.total)
+	}
+
+	delta := downloaded - d.downloaded
+
+	if delta != 0 {
+		d.Tracker.Add(int(delta))
+		d.downloaded = downloaded
+	}
+
+	if d.downloaded >= d.total {
+		_, _ = d.Tracker.Stop()
+	}
 }
 
 func NewDownloadTracker(progress *pterm.ProgressbarPrinter) *DownloadTracker {
 	return &DownloadTracker{
-		Tracker:       progress,
-		startTime:     time.Now(),
-		originalTitle: progress.Title,
+		Tracker: progress,
 	}
-}
-
-func (d *DownloadTracker) SetTotal(total int64) {
-	d.Total = total
-	d.Tracker.Total = int(total)
-	d.updateTitle()
-}
-
-func (d *DownloadTracker) SetReader(reader io.Reader) {
-	d.reader = reader
-}
-
-func (d *DownloadTracker) Read(p []byte) (int, error) {
-	n, err := d.reader.Read(p)
-
-	d.Downloaded += int64(n)
-	d.Tracker.Add(n)
-	d.updateTitle()
-
-	return n, err //nolint:wrapcheck
-}
-
-func (d *DownloadTracker) updateTitle() {
-	// elapsed := time.Since(d.startTime).Seconds()
-
-	// speed := float64(d.Downloaded) / elapsed / 1024 / 1024 // nolint:mnd
-
-	// progress := fmt.Sprintf("%s / %s (%.2f MB/s)",
-	// 	formatSize(d.Downloaded),
-	// 	formatSize(d.Total),
-	// 	speed)
-
-	// d.Tracker.Title = fmt.Sprintf("%s - %s", d.originalTitle, progress)
-}
-
-func formatSize(bytes int64) string { // nolint:unused
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-
-	div, exp := int64(unit), 0
-
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
